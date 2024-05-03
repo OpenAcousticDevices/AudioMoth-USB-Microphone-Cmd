@@ -1,4 +1,4 @@
-# AudioMoth-USB-Microphone #
+# AudioMoth-USB-Microphone-Cmd #
 
 This is a command line tool for configuring the AudioMoth USB Microphone. It works with version 1.3.0 and greater of the AudioMoth USB Firmware
 
