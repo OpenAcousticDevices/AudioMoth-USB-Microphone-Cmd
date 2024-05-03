@@ -60,12 +60,6 @@ SUBSYSTEM=="usb", ATTRS{idVendor}=="16d0", ATTRS{idProduct}=="06f3", MODE="0666"
 On certain Linux distributions, you may have to manually set the permissions for ports to allow the app to communicate with the AudioMoth. If you experience connection issues, try the following command:
 ​
 ```
-> sudo ./AudioMothConfigurationAppSetupX.X.X.AppImage --no-sandbox
-​```
-
-You can either keep the .AppImage in a memorable location and run it from there every time, or integrate it into your system. To do this, first install AppImageLauncher and then run each app. You will be given the choice to either run as normal or integrate it into your applications menu.
-
-```
 > sudo usermod -a -G dialout $(whoami)
 ```
 
