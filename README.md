@@ -57,7 +57,7 @@ Then enter the following text:
 SUBSYSTEM=="usb", ATTRS{idVendor}=="16d0", ATTRS{idProduct}=="06f3", MODE="0666" 
 ```
 
-On certain Linux distributions, you may have to manually set the permissions for ports to allow the app to communicate with the AudioMoth. If you experience connection issues, try the following command:
+On certain Linux distributions, you may also have to manually set the permissions for ports to allow the app to communicate with the AudioMoth. If you experience connection issues, try the following command:
 ​
 ```
 > sudo usermod -a -G dialout $(whoami)
