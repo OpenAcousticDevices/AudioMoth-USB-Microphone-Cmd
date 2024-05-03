@@ -67,6 +67,6 @@ You can either keep the .AppImage in a memorable location and run it from there 
 
 ```
 > sudo usermod -a -G dialout $(whoami)
-> ```
+```
 
 On macOS, Linux and Raspberry Pi you can copy the resulting executable to `/usr/local/bin/` so it is immediately accessible from the terminal. On Windows copy the executable to a permanent location and add this location to the `PATH` variable.
