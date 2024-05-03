@@ -51,7 +51,7 @@ By default, Linux prevents writing to certain types of USB devices such as the A
 > sudo gedit 99-audiomoth.rules
 ```
 
-Then enter the following text:
+Then add the following text:
 
 ```
 SUBSYSTEM=="usb", ATTRS{idVendor}=="16d0", ATTRS{idProduct}=="06f3", MODE="0666" 
