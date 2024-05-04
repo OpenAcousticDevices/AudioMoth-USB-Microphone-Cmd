@@ -32,16 +32,16 @@ AudioMoth-USB-Microphone can be built on Windows using the Microsoft Visual C++ 
 cl /I ..\src\windows\ ..\src\main.c ..\src\windows\hid.c /link /out:AudioMoth-USB-Microphone.exe SetupAPI.lib
 ```
 
-AudioMoth-USB-Microphone can be built on Linux and Raspberry Pi using `gcc`.
-
-```
-gcc -Wall -std=c99 -I/usr/include/libusb-1.0 -I../src/linux/ ../src/main.c ../src/linux/hid.c -o AudioMoth-USB-Microphone -lusb-1.0 -lrt -lpthread
-```
-
-The libusb development library must be installed.
+AudioMoth-USB-Microphone can be built on Linux and Raspberry Pi using `gcc`. If not already present, the `libusb` development library must be installed.
 
 ```
 > sudo apt-get install libusb-1.0-0-dev
+```
+
+Then the source can be compiled.
+
+```
+gcc -Wall -std=c99 -I/usr/include/libusb-1.0 -I../src/linux/ ../src/main.c ../src/linux/hid.c -o AudioMoth-USB-Microphone -lusb-1.0 -lrt -lpthread
 ```
 
 By default, Linux prevents writing to certain types of USB devices such as the AudioMoth. To use this application you must first navigate to `/lib/udev/rules.d/` and create a new file (or edit the existing file) with the name `99-audiomoth.rules`:
