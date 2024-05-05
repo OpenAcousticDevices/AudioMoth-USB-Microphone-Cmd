@@ -36,7 +36,9 @@
 /* HID configuration constants */
 
 #define HID_CONFIGURATION_MESSAGE               0x01
-#define HID_RESTORE_DEFAULT_MESSAGE             0x02
+#define HID_UPDATE_GAIN_MESSAGE                 0x02
+#define HID_SET_LED_MESSAGE                     0x03
+#define HID_RESTORE_MESSAGE                     0x04
 
 /* Return state */
 
@@ -55,7 +57,7 @@ typedef enum {NO_FILTER, LOW_PASS_FILTER, BAND_PASS_FILTER, HIGH_PASS_FILTER} fi
 
 /* Operation enum */
 
-typedef enum {NO_OP, LIST_OP, CONFIG_OP, RESTORE_OP} operationType_t;
+typedef enum {NO_OP, LIST_OP, CONFIG_OP, UPDATE_GAIN_OP, SET_LED_OP, RESTORE_OP} operationType_t;
 
 /* Configuration value arrays */
 
@@ -269,11 +271,23 @@ static bool communicate(operationType_t operationType, char *path) {
 
         memcpy(usbOutputBuffer + 2, &defaultConfigSettings, sizeof(configSettings_t));
 
-    } else if (operationType == RESTORE_OP){
+    } else if (operationType == UPDATE_GAIN_OP) {
 
-        usbOutputBuffer[1] = HID_RESTORE_DEFAULT_MESSAGE;
+        usbOutputBuffer[1] = HID_UPDATE_GAIN_MESSAGE;
 
-    }
+        memcpy(usbOutputBuffer + 2, &defaultConfigSettings, sizeof(configSettings_t));
+
+    } else if (operationType == SET_LED_OP) {
+
+        usbOutputBuffer[1] = HID_SET_LED_MESSAGE;
+
+        memcpy(usbOutputBuffer + 2, &defaultConfigSettings, sizeof(configSettings_t));
+
+    } else if (operationType == RESTORE_OP) {
+
+        usbOutputBuffer[1] = HID_RESTORE_MESSAGE;
+
+    } 
 
     /* Write buffer to device */
 
@@ -293,7 +307,9 @@ static bool communicate(operationType_t operationType, char *path) {
 
     if (length != USB_PACKETSIZE) return false;
 
-    for (int i = 0; i < USB_PACKETSIZE - 1; i += 1) {
+    int lengthToCheck = operationType == RESTORE_OP ? 1 : 1 + sizeof(configSettings_t);
+
+    for (int i = 0; i < lengthToCheck; i += 1) {
 
         if (usbOutputBuffer[i + 1] != usbInputBuffer[i]) return false;
 
@@ -347,6 +363,40 @@ int main(int argc, char **argv) {
 
         operationType = CONFIG_OP;
 
+    } else if (parseArgument("LED", argument)) {
+
+        operationType = SET_LED_OP;
+
+        argumentCounter += 1;
+
+        if (argumentCounter == argc) {
+
+            parseError = true;
+
+        } else {
+
+            argument = argv[argumentCounter];
+
+            if (parseArgument("TRUE", argument) || parseArgument("ON", argument) || parseArgument("1", argument)) {
+
+                defaultConfigSettings.disableLED = false;
+
+            } else if (parseArgument("FALSE", argument) || parseArgument("OFF", argument) || parseArgument("0", argument)) {
+
+                defaultConfigSettings.disableLED = true;
+
+            } else {
+
+                parseError = true;
+
+            }
+
+        }
+
+    } else if (parseArgument("UPDATE", argument)) {
+
+        operationType = UPDATE_GAIN_OP;
+
     } else {
 
         parseError = true;
@@ -359,7 +409,7 @@ int main(int argc, char **argv) {
 
     while (argumentCounter < argc && parseError == false) {
 
-        char *argument = argv[argumentCounter];
+        argument = argv[argumentCounter];
 
         if (parseSerialNumber(argument, parsedSerialNumbers[numberOfSerialNumbers]) && operationType != LIST_OP) {
 
@@ -371,7 +421,7 @@ int main(int argc, char **argv) {
 
             defaultConfigSettings.sampleRateDiAUDIOMOTH_USB_VIDer = sampleRateDiAUDIOMOTH_USB_VIDers[index];
         
-        } else if (parseArgument("GAIN", argument) && operationType == CONFIG_OP) {
+        } else if ((parseArgument("GAIN", argument) || parseArgument("G", argument)) && (operationType == CONFIG_OP || operationType == UPDATE_GAIN_OP)) {
 
             argumentCounter += 1;
 
@@ -514,7 +564,7 @@ int main(int argc, char **argv) {
 
             }
 
-        } else if ((parseArgument("LOWGAINRANGE", argument) || parseArgument("LGR", argument)) && operationType == CONFIG_OP) {
+        } else if ((parseArgument("LOWGAINRANGE", argument) || parseArgument("LGR", argument)) && (operationType == CONFIG_OP || operationType == UPDATE_GAIN_OP)) {
 
             defaultConfigSettings.enableLowGainRange = true;
 
@@ -522,13 +572,9 @@ int main(int argc, char **argv) {
 
             defaultConfigSettings.enableEnergySaverMode = true;
 
-        } else if (parseArgument("DISABLE48HZ", argument) && operationType == CONFIG_OP) {
+        } else if ((parseArgument("DISABLE48HZ", argument) || parseArgument("D48", argument)) && operationType == CONFIG_OP) {
 
             defaultConfigSettings.disable48HzDCBlockingFilter = true;
-
-        } else if (parseArgument("DISABLELED", argument) && operationType == CONFIG_OP) {
-
-            defaultConfigSettings.disableLED = true;
 
         } else {
 
