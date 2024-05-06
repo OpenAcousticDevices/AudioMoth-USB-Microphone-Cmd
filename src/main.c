@@ -449,7 +449,7 @@ int main(int argc, char **argv) {
 
             }
 
-        } else if ((parseArgument("LOWPASSFILTER", argument) || parseArgument("LPF", argument)) && operationType == CONFIG_OP) {
+        } else if ((parseArgument("LOWPASSFILTER", argument) || parseArgument("LPF", argument)) && operationType == CONFIG_OP && filterType == NO_FILTER) {
 
             filterType = LOW_PASS_FILTER;
 
@@ -480,7 +480,7 @@ int main(int argc, char **argv) {
 
             }
 
-        } else if ((parseArgument("HIGHPASSFILTER", argument) || parseArgument("HPF", argument)) && operationType == CONFIG_OP) {
+        } else if ((parseArgument("HIGHPASSFILTER", argument) || parseArgument("HPF", argument)) && operationType == CONFIG_OP && filterType == NO_FILTER) {
 
             filterType = HIGH_PASS_FILTER;
 
@@ -511,7 +511,7 @@ int main(int argc, char **argv) {
 
             }
 
-        } else if ((parseArgument("BANDPASSFILTER", argument) || parseArgument("BPF", argument)) && operationType == CONFIG_OP) {
+        } else if ((parseArgument("BANDPASSFILTER", argument) || parseArgument("BPF", argument)) && operationType == CONFIG_OP && filterType == NO_FILTER) {
 
             filterType = BAND_PASS_FILTER;
 
@@ -658,7 +658,7 @@ int main(int argc, char **argv) {
     
     /* Perform the requested action */
 
-    char *operationString = operationType == RESTORE_OP ? "RESTORE" : "CONFIG";
+    char *operationStrings[] = {"CONFIG", "UPDATE", "LED", "RESTORE"};
 
     if (operationType == LIST_OP) {
 
@@ -732,7 +732,7 @@ int main(int argc, char **argv) {
 
     } else if (numberOfSerialNumbers == 0) {
 
-        /* Send CONFIG or RESTORE to all connected AudioMoth USB Microphone */
+        /* Send CONFIG, UPDATE, LED or RESTORE to all connected AudioMoth USB Microphone */
 
         while (deviceInfo != NULL) {
 
@@ -772,6 +772,8 @@ int main(int argc, char **argv) {
 
                         if (completed) {
 
+                            char *operationString = operationStrings[operationType - 2];
+
                             printf("Sent %s command to device ID %s.\n", operationString, currentSerialNumberPtr);
 
                         } else {
@@ -792,7 +794,7 @@ int main(int argc, char **argv) {
 
     } else {
 
-        /* Send CONFIG or RESTORE to AudioMoth USB Microphone specified by serial number */
+        /* Send CONFIG, UPDATE, LED or RESTORE to AudioMoth USB Microphone specified by serial number */
 
         struct hid_device_info *firstDeviceInfo = deviceInfo;
 
@@ -841,6 +843,8 @@ int main(int argc, char **argv) {
                             bool completed = communicate(operationType, path);
 
                             if (completed) {
+
+                                char *operationString = operationStrings[operationType - 2];
                                 
                                 printf("Sent %s command to device ID %s.\n", operationString, currentSerialNumberPtr);
 
