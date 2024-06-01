@@ -39,6 +39,8 @@
 #define HID_UPDATE_GAIN_MESSAGE                 0x02
 #define HID_SET_LED_MESSAGE                     0x03
 #define HID_RESTORE_MESSAGE                     0x04
+#define HID_READ_MESSAGE                        0x05
+#define HID_PERSIST_MESSAGE                     0x06
 
 /* Return state */
 
@@ -57,7 +59,7 @@ typedef enum {NO_FILTER, LOW_PASS_FILTER, BAND_PASS_FILTER, HIGH_PASS_FILTER} fi
 
 /* Operation enum */
 
-typedef enum {NO_OP, LIST_OP, CONFIG_OP, UPDATE_GAIN_OP, SET_LED_OP, RESTORE_OP} operationType_t;
+typedef enum {NO_OP, LIST_OP, CONFIG_OP, UPDATE_GAIN_OP, SET_LED_OP, RESTORE_OP, READ_OP, PERSIST_OP} operationType_t;
 
 /* Configuration value arrays */
 
@@ -65,7 +67,7 @@ static int validSampleRates[NUMBER_OF_SAMPLE_RATES] = {8000, 16000, 32000, 48000
 
 static uint32_t sampleRates[NUMBER_OF_SAMPLE_RATES] = {384000, 384000, 384000, 384000, 384000, 384000, 250000, 384000};
 
-static uint32_t sampleRateDiAUDIOMOTH_USB_VIDers[NUMBER_OF_SAMPLE_RATES] = {48, 24, 12, 8, 4, 2, 1, 1};
+static uint32_t sampleRateDividers[NUMBER_OF_SAMPLE_RATES] = {48, 24, 12, 8, 4, 2, 1, 1};
 
 /* USB configuration data structure */
 
@@ -74,11 +76,11 @@ static uint32_t sampleRateDiAUDIOMOTH_USB_VIDers[NUMBER_OF_SAMPLE_RATES] = {48, 
 typedef struct {
     uint32_t time;
     uint8_t gain;
-    uint8_t clockDiAUDIOMOTH_USB_VIDer;
+    uint8_t clockDivider;
     uint8_t acquisitionCycles;
     uint8_t oversampleRate;
     uint32_t sampleRate;
-    uint8_t sampleRateDiAUDIOMOTH_USB_VIDer;
+    uint8_t sampleRateDivider;
     uint16_t lowerFilterFreq;
     uint16_t higherFilterFreq;
     uint8_t enableEnergySaverMode : 1; 
@@ -92,11 +94,11 @@ typedef struct {
 static configSettings_t defaultConfigSettings = {
     .time = 0,
     .gain = 2,
-    .clockDiAUDIOMOTH_USB_VIDer = 4,
+    .clockDivider = 4,
     .acquisitionCycles = 16,
     .oversampleRate = 1,
     .sampleRate = 384000,
-    .sampleRateDiAUDIOMOTH_USB_VIDer = 1,
+    .sampleRateDivider = 1,
     .lowerFilterFreq = 0,
     .higherFilterFreq = 0,
     .enableEnergySaverMode = 0,
@@ -131,6 +133,38 @@ static void printBuffer(uint8_t *buffer) {
     
     printf("%02x\n", buffer[USB_PACKETSIZE - 1]);
     
+}
+
+/* Function to print configuration */
+
+static void printConfiguration(configSettings_t *configSettings) {
+
+    int effectiveSampleRate = configSettings->sampleRate / configSettings->sampleRateDivider;
+
+    printf("%d gain %d", effectiveSampleRate, configSettings->gain);
+
+    if (configSettings->lowerFilterFreq == UINT16_MAX && configSettings->higherFilterFreq != UINT16_MAX) {
+
+        printf(" lpf %d", configSettings->higherFilterFreq * FILTER_FREQ_MULTIPLIER);
+
+    } else if (configSettings->lowerFilterFreq != UINT16_MAX && configSettings->higherFilterFreq == UINT16_MAX) {
+
+        printf(" hpf %d", configSettings->lowerFilterFreq * FILTER_FREQ_MULTIPLIER);
+
+    } else if (configSettings->lowerFilterFreq > 0 && configSettings->higherFilterFreq > 0) {
+
+        printf(" bpf %d %d", configSettings->higherFilterFreq * FILTER_FREQ_MULTIPLIER, configSettings->lowerFilterFreq * FILTER_FREQ_MULTIPLIER);
+
+    }
+
+    if (configSettings->enableLowGainRange) printf(" lgr");
+
+    if (configSettings->enableEnergySaverMode) printf(" esm");
+
+    if (configSettings->disable48HzDCBlockingFilter) printf(" d48");
+
+    printf("\n");
+
 }
 
 /* Convert wide char to char */
@@ -287,7 +321,15 @@ static bool communicate(operationType_t operationType, char *path) {
 
         usbOutputBuffer[1] = HID_RESTORE_MESSAGE;
 
-    } 
+    } else if (operationType == READ_OP) {
+
+        usbOutputBuffer[1] = HID_READ_MESSAGE;
+
+    } else if (operationType == PERSIST_OP) {
+
+        usbOutputBuffer[1] = HID_PERSIST_MESSAGE;
+
+    }
 
     /* Write buffer to device */
 
@@ -307,7 +349,9 @@ static bool communicate(operationType_t operationType, char *path) {
 
     if (length != USB_PACKETSIZE) return false;
 
-    int lengthToCheck = operationType == RESTORE_OP ? 1 : 1 + sizeof(configSettings_t);
+    bool hasNoConfiguration = operationType == RESTORE_OP || operationType == READ_OP || operationType == PERSIST_OP;
+
+    int lengthToCheck = hasNoConfiguration ? 1 : 1 + sizeof(configSettings_t);
 
     for (int i = 0; i < lengthToCheck; i += 1) {
 
@@ -397,6 +441,16 @@ int main(int argc, char **argv) {
 
         operationType = UPDATE_GAIN_OP;
 
+    } else if (parseArgument("READ", argument)) {
+
+        operationType = READ_OP;
+    
+    
+    } else if (parseArgument("PERSIST", argument)) {
+
+        operationType = PERSIST_OP;
+    
+    
     } else {
 
         parseError = true;
@@ -419,7 +473,7 @@ int main(int argc, char **argv) {
 
             defaultConfigSettings.sampleRate = sampleRates[index];
 
-            defaultConfigSettings.sampleRateDiAUDIOMOTH_USB_VIDer = sampleRateDiAUDIOMOTH_USB_VIDers[index];
+            defaultConfigSettings.sampleRateDivider = sampleRateDividers[index];
         
         } else if ((parseArgument("GAIN", argument) || parseArgument("G", argument)) && (operationType == CONFIG_OP || operationType == UPDATE_GAIN_OP)) {
 
@@ -606,7 +660,7 @@ int main(int argc, char **argv) {
 
     }
 
-    int nyquistFrequency = defaultConfigSettings.sampleRate / defaultConfigSettings.sampleRateDiAUDIOMOTH_USB_VIDer / FILTER_FREQ_MULTIPLIER / 2;
+    int nyquistFrequency = defaultConfigSettings.sampleRate / defaultConfigSettings.sampleRateDivider / FILTER_FREQ_MULTIPLIER / 2;
 
     if (filterType == LOW_PASS_FILTER && defaultConfigSettings.higherFilterFreq > nyquistFrequency) {
 
@@ -658,7 +712,7 @@ int main(int argc, char **argv) {
     
     /* Perform the requested action */
 
-    char *operationStrings[] = {"CONFIG", "UPDATE", "LED", "RESTORE"};
+    char *operationStrings[] = {"CONFIG", "UPDATE", "LED", "RESTORE", "READ", "PERSIST"};
 
     if (operationType == LIST_OP) {
 
@@ -718,6 +772,12 @@ int main(int argc, char **argv) {
                             
                     }
                         
+                } else {
+
+                    puts("[ERROR] Problem accessing USB device.");
+                    
+                    break;
+
                 }
                 
             }
@@ -732,9 +792,11 @@ int main(int argc, char **argv) {
 
     } else if (numberOfSerialNumbers == 0) {
 
-        /* Send CONFIG, UPDATE, LED or RESTORE to all connected AudioMoth USB Microphone */
+        /* Send CONFIG, UPDATE, LED, RESTORE, READ or PERSIST to all connected AudioMoth USB Microphone */
 
-        while (deviceInfo != NULL) {
+        bool cancel = false;
+
+        while (deviceInfo != NULL && cancel == false) {
 
             char *path = deviceInfo->path;
             
@@ -772,9 +834,19 @@ int main(int argc, char **argv) {
 
                         if (completed) {
 
-                            char *operationString = operationStrings[operationType - 2];
+                            if (operationType == READ_OP) {
 
-                            printf("Sent %s command to device ID %s.\n", operationString, currentSerialNumberPtr);
+                                printf("%s - ", currentSerialNumberPtr);
+
+                                printConfiguration((configSettings_t*)(usbInputBuffer + 1));
+
+                            } else {
+
+                                char *operationString = operationStrings[operationType - 2];
+
+                                printf("Sent %s command to device ID %s.\n", operationString, currentSerialNumberPtr);
+
+                            }
 
                         } else {
                             
@@ -784,6 +856,12 @@ int main(int argc, char **argv) {
 
                     }
                     
+                } else {
+
+                    puts("[ERROR] Problem accessing USB device.");
+
+                    cancel = true;
+
                 }
                 
             }
@@ -794,7 +872,9 @@ int main(int argc, char **argv) {
 
     } else {
 
-        /* Send CONFIG, UPDATE, LED or RESTORE to AudioMoth USB Microphone specified by serial number */
+        /* Send CONFIG, UPDATE, LED, RESTORE, READ or PERSIST to AudioMoth USB Microphone specified by serial number */
+
+        bool cancel = false;
 
         struct hid_device_info *firstDeviceInfo = deviceInfo;
 
@@ -804,7 +884,7 @@ int main(int argc, char **argv) {
 
             deviceInfo = firstDeviceInfo;
 
-            while (deviceInfo != NULL) {
+            while (deviceInfo != NULL && cancel == false) {
             
                 char *path = deviceInfo->path;
             
@@ -844,9 +924,19 @@ int main(int argc, char **argv) {
 
                             if (completed) {
 
-                                char *operationString = operationStrings[operationType - 2];
+                                if (operationType == READ_OP) {
+
+                                    printf("%s - ", currentSerialNumberPtr);
+
+                                    printConfiguration((configSettings_t*)(usbInputBuffer + 1));
+
+                                } else {
+
+                                    char *operationString = operationStrings[operationType - 2];
                                 
-                                printf("Sent %s command to device ID %s.\n", operationString, currentSerialNumberPtr);
+                                    printf("Sent %s command to device ID %s.\n", operationString, currentSerialNumberPtr);
+
+                                }
 
                             } else {
                                 
@@ -858,6 +948,13 @@ int main(int argc, char **argv) {
 
                         }
 
+                    } else {
+
+                        puts("[ERROR] Problem accessing USB device.");
+
+                        cancel = true;
+                    
+
                     }
 
                 }
@@ -865,6 +962,8 @@ int main(int argc, char **argv) {
                 deviceInfo = deviceInfo->next;
 
             }
+
+            if (cancel) break;
 
             if (found == false) printf("[ERROR] Could not find device ID %s.\n", parsedSerialNumbers[i]);
 
