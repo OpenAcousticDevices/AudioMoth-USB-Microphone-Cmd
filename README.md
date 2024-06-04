@@ -87,10 +87,10 @@ The Linux and Raspberry Pi shell scripts can also be downloaded directly from th
 ​
 ```
 > curl -LJO https://github.com/OpenAcousticDevices/AudioMoth-USB-Microphone-Cmd/releases/download/1.0.0/AudioMothUSBMicrophoneSetup1.0.0.sh
-​```
+```
 
 and
 ​
 ```
 > curl -LJO https://github.com/OpenAcousticDevices/AudioMoth-USB-Microphone-Cmd/releases/download/1.0.0/AudioMothUSBMicrophoneBuild1.0.0.sh
-​```
+```
