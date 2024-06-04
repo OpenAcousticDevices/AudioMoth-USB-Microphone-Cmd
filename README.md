@@ -4,7 +4,7 @@ This is a command line tool for configuring the AudioMoth USB Microphone. It wor
 
 ## How to use it ##
 
-The AudioMoth-USB-Microphone command line tool is described in detail in the Application Note [here]().
+The AudioMoth-USB-Microphone command line tool is described in detail in the Application Note [here](https://github.com/OpenAcousticDevices/Application-Notes/blob/master/Configuring_the_AudioMoth_USB_Microphone_from_the_Command_Line/Configuring_the_AudioMoth_USB_Microphone_from_the_Command_Line.pdf).
 
 The following command will set all connected AudioMoth USB Microphones to default settings with a sample rate of 48kHz.
 
@@ -18,7 +18,7 @@ The following command does the same on Windows.
 > AudioMoth-USB-Microphone.exe config 48000
 ```
 
-## Building ##
+## Building from source ##
 
 AudioMoth-USB-Microphone can be built on macOS using the Xcode Command Line Tools.
 
@@ -64,3 +64,26 @@ On certain Linux distributions, you may also have to manually set the permission
 ```
 
 On macOS, Linux and Raspberry Pi you can copy the resulting executable to `/usr/local/bin/` so it is immediately accessible from the terminal. On Windows copy the executable to a permanent location and add this location to the `PATH` variable.
+
+## Pre-built Installers ##
+
+Pre-built installers are available for macOS, Windows, Linux and Raspberry Pi are available [here](https://github.com/OpenAcousticDevices/AudioMoth-USB-Microphone-Cmd/releases/tag/1.0.0). 
+
+The macOS and Windows installers can be double-clicked to start the installation process. The Linux and Raspberry Pi files are shell scripts that can be run from the command line after downloading with the commands:
+​
+> sh AudioMothUSBMicrophoneSetup1.0.0.sh
+​
+and
+ 
+> sh AudioMothUSBMicrophoneBuild1.0.0.sh
+​
+The Linux version will copy a pre-compiled executable to /usr/local/bin while the Raspberry Pi will compile the executable from source code and then copy it to /usr/local/bin. Both versions will prompt for the user password in order to complete the copy.
+​
+The Linux and Raspberry Pi shell scripts can also be downloaded directly from the command line with:
+​
+> curl -LJO https://github.com/OpenAcousticDevices/AudioMoth-USB-Microphone-Cmd/releases/download/1.0.0/AudioMothUSBMicrophoneSetup1.0.0.sh
+​
+and
+​
+> curl -LJO https://github.com/OpenAcousticDevices/AudioMoth-USB-Microphone-Cmd/releases/download/1.0.0/AudioMothUSBMicrophoneBuild1.0.0.sh
+​
