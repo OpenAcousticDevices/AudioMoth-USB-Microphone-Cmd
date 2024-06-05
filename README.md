@@ -65,7 +65,7 @@ On certain Linux distributions, you may also have to manually set the permission
 
 On macOS, Linux and Raspberry Pi you can copy the resulting executable to `/usr/local/bin/` so it is immediately accessible from the terminal. On Windows copy the executable to a permanent location and add this location to the `PATH` variable.
 
-## Pre-built Installers ##
+## Pre-built installers ##
 
 Pre-built installers are available for macOS, Windows, Linux and Raspberry Pi are available [here](https://github.com/OpenAcousticDevices/AudioMoth-USB-Microphone-Cmd/releases/tag/1.0.0). 
 
@@ -81,7 +81,7 @@ and
 > sh AudioMothUSBMicrophoneBuild1.0.0.sh
 ```
 
-The Linux version will copy a pre-compiled executable to /usr/local/bin while the Raspberry Pi will compile the executable from source code and then copy it to /usr/local/bin. Both versions will prompt for the user password in order to complete the copy.
+The Linux version will copy a pre-compiled executable to /usr/local/bin while the Raspberry Pi will compile the executable from source code and then copy it to /usr/local/bin. Both versions will prompt for the user password to complete the copy.
 ​
 The Linux and Raspberry Pi shell scripts can also be downloaded directly from the command line with:
 ​
