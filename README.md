@@ -18,9 +18,9 @@ The following command does the same on Windows.
 > AudioMoth-USB-Microphone.exe config 48000
 ```
 
-### Linux and Raspberry Pi ###
+### Linux ###
 
-By default, Linux and Raspberry Pi prevent writing to certain types of USB devices such as the AudioMoth. To use this application you must first navigate to `/lib/udev/rules.d/` and create a new file (or edit the existing file) with the name `99-audiomoth.rules`:
+By default, Linux prevents writing to certain types of USB devices such as the AudioMoth. To use this application you must first navigate to `/lib/udev/rules.d/` and create a new file (or edit the existing file) with the name `99-audiomoth.rules`:
 
 ```
 > cd /lib/udev/rules.d/
