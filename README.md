@@ -53,7 +53,7 @@ AudioMoth-USB-Microphone can be built on Windows using the Microsoft Visual C++ 
 cl /I ..\src\windows\ ..\src\main.c ..\src\windows\hid.c /link /out:AudioMoth-USB-Microphone.exe SetupAPI.lib
 ```
 
-AudioMoth-USB-Microphone can be built on Linux and Raspberry Pi using `gcc`. If not already present, the `libusb` development library must be installed.
+AudioMoth-USB-Microphone can be built on Linux using `gcc`. If not already present, the `libusb` development library must be installed.
 
 ```
 > sudo apt-get install libusb-1.0.0-dev
