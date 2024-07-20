@@ -65,7 +65,7 @@ Then the source can be compiled.
 gcc -Wall -std=c99 -I/usr/include/libusb-1.0 -I../src/linux/ ../src/main.c ../src/linux/hid.c -o AudioMoth-USB-Microphone -lusb-1.0 -lrt -lpthread
 ```
 
-On macOS, Linux and Raspberry Pi you can copy the resulting executable to `/usr/local/bin/` so it is immediately accessible from the terminal. On Windows copy the executable to a permanent location and add this location to the `PATH` variable.
+On macOS and Linux you can copy the resulting executable to `/usr/local/bin/` so it is immediately accessible from the terminal. On Windows copy the executable to a permanent location and add this location to the `PATH` variable.
 
 ## Pre-built installers ##
 
