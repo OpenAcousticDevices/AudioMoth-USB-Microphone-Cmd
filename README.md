@@ -18,6 +18,27 @@ The following command does the same on Windows.
 > AudioMoth-USB-Microphone.exe config 48000
 ```
 
+### Linux ###
+
+By default, Linux prevents writing to certain types of USB devices such as the AudioMoth. To use this application you must first navigate to `/lib/udev/rules.d/` and create a new file (or edit the existing file) with the name `99-audiomoth.rules`:
+
+```
+> cd /lib/udev/rules.d/
+> sudo gedit 99-audiomoth.rules
+```
+
+Then add the following text:
+
+```
+SUBSYSTEM=="usb", ATTRS{idVendor}=="16d0", ATTRS{idProduct}=="06f3", MODE="0666" 
+```
+
+On certain Linux distributions, you may also have to manually set the permissions for ports to allow the app to communicate with the AudioMoth. If you experience connection issues, try the following command:
+​
+```
+> sudo usermod -a -G dialout $(whoami)
+```
+
 ## Building from source ##
 
 AudioMoth-USB-Microphone can be built on macOS using the Xcode Command Line Tools.
@@ -42,25 +63,6 @@ Then the source can be compiled.
 
 ```
 gcc -Wall -std=c99 -I/usr/include/libusb-1.0 -I../src/linux/ ../src/main.c ../src/linux/hid.c -o AudioMoth-USB-Microphone -lusb-1.0 -lrt -lpthread
-```
-
-By default, Linux prevents writing to certain types of USB devices such as the AudioMoth. To use this application you must first navigate to `/lib/udev/rules.d/` and create a new file (or edit the existing file) with the name `99-audiomoth.rules`:
-
-```
-> cd /lib/udev/rules.d/
-> sudo gedit 99-audiomoth.rules
-```
-
-Then add the following text:
-
-```
-SUBSYSTEM=="usb", ATTRS{idVendor}=="16d0", ATTRS{idProduct}=="06f3", MODE="0666" 
-```
-
-On certain Linux distributions, you may also have to manually set the permissions for ports to allow the app to communicate with the AudioMoth. If you experience connection issues, try the following command:
-​
-```
-> sudo usermod -a -G dialout $(whoami)
 ```
 
 On macOS, Linux and Raspberry Pi you can copy the resulting executable to `/usr/local/bin/` so it is immediately accessible from the terminal. On Windows copy the executable to a permanent location and add this location to the `PATH` variable.
