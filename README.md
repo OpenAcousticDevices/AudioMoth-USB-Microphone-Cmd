@@ -74,13 +74,13 @@ Pre-built installers are available for macOS, Windows, Linux and Raspberry Pi ar
 The macOS and Windows installers can be double-clicked to start the installation process. The Linux and Raspberry Pi files are shell scripts that can be run from the command line after downloading with the commands:
 ​
 ```
-> sh AudioMothUSBMicrophoneSetup1.0.0.sh
+> sh AudioMothUSBMicrophoneSetup1.0.1.sh
 ```
 ​
 and
  
 ```
-> sh AudioMothUSBMicrophoneBuild1.0.0.sh
+> sh AudioMothUSBMicrophoneBuild1.0.1.sh
 ```
 
 The Linux version will copy a pre-compiled executable to `/usr/local/bin` while the Raspberry Pi will compile the executable from source code and then copy it to `/usr/local/bin`. Both versions will prompt for the user password to complete the copy.
