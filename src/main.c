@@ -41,6 +41,8 @@
 #define HID_RESTORE_MESSAGE                     0x04
 #define HID_READ_MESSAGE                        0x05
 #define HID_PERSIST_MESSAGE                     0x06
+#define HID_FIRMARE_MESSAGE                     0x07
+#define HID_BOOTLOADER_MESSAGE                  0x08
 
 /* Return state */
 
@@ -59,7 +61,7 @@ typedef enum {NO_FILTER, LOW_PASS_FILTER, BAND_PASS_FILTER, HIGH_PASS_FILTER} fi
 
 /* Operation enum */
 
-typedef enum {NO_OP, LIST_OP, CONFIG_OP, UPDATE_GAIN_OP, SET_LED_OP, RESTORE_OP, READ_OP, PERSIST_OP} operationType_t;
+typedef enum {NO_OP, LIST_OP, CONFIG_OP, UPDATE_GAIN_OP, SET_LED_OP, RESTORE_OP, READ_OP, PERSIST_OP, FIRMWARE_OP, BOOTLOADER_OP} operationType_t;
 
 /* Configuration value arrays */
 
@@ -329,6 +331,14 @@ static bool communicate(operationType_t operationType, char *path) {
 
         usbOutputBuffer[1] = HID_PERSIST_MESSAGE;
 
+    } else if (operationType == FIRMWARE_OP) {
+
+        usbOutputBuffer[1] = HID_FIRMARE_MESSAGE;
+
+    } else if (operationType == BOOTLOADER_OP) {
+
+        usbOutputBuffer[1] = HID_BOOTLOADER_MESSAGE;
+
     }
 
     /* Write buffer to device */
@@ -349,7 +359,7 @@ static bool communicate(operationType_t operationType, char *path) {
 
     if (length != USB_PACKETSIZE) return false;
 
-    bool hasNoConfiguration = operationType == RESTORE_OP || operationType == READ_OP || operationType == PERSIST_OP;
+    bool hasNoConfiguration = operationType == RESTORE_OP || operationType == READ_OP || operationType == PERSIST_OP || operationType == FIRMWARE_OP || operationType == BOOTLOADER_OP;
 
     int lengthToCheck = hasNoConfiguration ? 1 : 1 + sizeof(configSettings_t);
 
@@ -369,7 +379,7 @@ int main(int argc, char **argv) {
 
     /* Display version number */
 
-    puts("AudioMoth-USB-Microphone 1.0.0");
+    puts("AudioMoth-USB-Microphone 1.0.1");
 
     /* Parse variables */
 
@@ -445,12 +455,18 @@ int main(int argc, char **argv) {
 
         operationType = READ_OP;
     
-    
     } else if (parseArgument("PERSIST", argument)) {
 
         operationType = PERSIST_OP;
-    
-    
+
+    } else if (parseArgument("FIRMWARE", argument)) {
+
+        operationType = FIRMWARE_OP;
+
+    } else if (parseArgument("BOOTLOADER", argument)) {
+
+        operationType = BOOTLOADER_OP;
+
     } else {
 
         parseError = true;
@@ -712,7 +728,7 @@ int main(int argc, char **argv) {
     
     /* Perform the requested action */
 
-    char *operationStrings[] = {"CONFIG", "UPDATE", "LED", "RESTORE", "READ", "PERSIST"};
+    char *operationStrings[] = {"CONFIG", "UPDATE", "LED", "RESTORE", "READ", "PERSIST", "FIRMWARE", "BOOTLOADER"};
 
     if (operationType == LIST_OP) {
 
@@ -792,7 +808,7 @@ int main(int argc, char **argv) {
 
     } else if (numberOfSerialNumbers == 0) {
 
-        /* Send CONFIG, UPDATE, LED, RESTORE, READ or PERSIST to all connected AudioMoth USB Microphone */
+        /* Send CONFIG, UPDATE, LED, RESTORE, READ, PERSIST, FIRMWARE or BOOTLOADER to all connected AudioMoth USB Microphone */
 
         bool cancel = false;
 
@@ -840,6 +856,12 @@ int main(int argc, char **argv) {
 
                                 printConfiguration((configSettings_t*)(usbInputBuffer + 1));
 
+                            } else if (operationType == FIRMWARE_OP) {
+                                
+                                printf("%s - ", currentSerialNumberPtr);
+                                
+                                printf("%s (%d.%d.%d)\n", usbInputBuffer + 4, *((uint8_t*)usbInputBuffer + 1), *((uint8_t*)usbInputBuffer + 2), *((uint8_t*)usbInputBuffer + 3));
+
                             } else {
 
                                 char *operationString = operationStrings[operationType - 2];
@@ -872,7 +894,7 @@ int main(int argc, char **argv) {
 
     } else {
 
-        /* Send CONFIG, UPDATE, LED, RESTORE, READ or PERSIST to AudioMoth USB Microphone specified by serial number */
+        /* Send CONFIG, UPDATE, LED, RESTORE, READ, PERSIST, FIRMWARE or BOOTLOADER to AudioMoth USB Microphone specified by serial number */
 
         bool cancel = false;
 
@@ -929,6 +951,12 @@ int main(int argc, char **argv) {
                                     printf("%s - ", currentSerialNumberPtr);
 
                                     printConfiguration((configSettings_t*)(usbInputBuffer + 1));
+
+                                } else if (operationType == FIRMWARE_OP) {
+                                
+                                    printf("%s - ", currentSerialNumberPtr);
+                                
+                                    printf("%s (%d.%d.%d)\n", usbInputBuffer + 4, *((uint8_t*)usbInputBuffer + 1), *((uint8_t*)usbInputBuffer + 2), *((uint8_t*)usbInputBuffer + 3));
 
                                 } else {
 
