@@ -69,7 +69,7 @@ On macOS and Linux you can copy the resulting executable to `/usr/local/bin/` so
 
 ## Pre-built installers ##
 
-Pre-built installers are available for macOS, Windows, Linux and Raspberry Pi are available [here](https://github.com/OpenAcousticDevices/AudioMoth-USB-Microphone-Cmd/releases/tag/1.0.0). 
+Pre-built installers are available for macOS, Windows, Linux and Raspberry Pi are available [here](https://github.com/OpenAcousticDevices/AudioMoth-USB-Microphone-Cmd/releases/tag/1.0.1). 
 
 The macOS and Windows installers can be double-clicked to start the installation process. The Linux and Raspberry Pi files are shell scripts that can be run from the command line after downloading with the commands:
 ​
