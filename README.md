@@ -88,11 +88,11 @@ The Linux version will copy a pre-compiled executable to `/usr/local/bin` while 
 The Linux and Raspberry Pi shell scripts can also be downloaded directly from the command line with:
 ​
 ```
-> curl -LJO https://github.com/OpenAcousticDevices/AudioMoth-USB-Microphone-Cmd/releases/download/1.0.0/AudioMothUSBMicrophoneSetup1.0.0.sh
+> curl -LJO https://github.com/OpenAcousticDevices/AudioMoth-USB-Microphone-Cmd/releases/download/1.0.1/AudioMothUSBMicrophoneSetup1.0.1.sh
 ```
 
 and
 ​
 ```
-> curl -LJO https://github.com/OpenAcousticDevices/AudioMoth-USB-Microphone-Cmd/releases/download/1.0.0/AudioMothUSBMicrophoneBuild1.0.0.sh
+> curl -LJO https://github.com/OpenAcousticDevices/AudioMoth-USB-Microphone-Cmd/releases/download/1.0.0/AudioMothUSBMicrophoneBuild1.0.1.sh
 ```
