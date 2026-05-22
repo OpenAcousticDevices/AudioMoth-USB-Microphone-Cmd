@@ -24,7 +24,7 @@ By default, Linux prevents writing to certain types of USB devices such as the A
 
 ```
 > cd /lib/udev/rules.d/
-> sudo gedit 99-audiomoth.rules
+> sudo nano 99-audiomoth.rules
 ```
 
 Then add the following text:
