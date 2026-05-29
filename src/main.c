@@ -24,6 +24,7 @@
 
 #define ARGUMENT_BUFFER_SIZE                    1024
 #define SERIAL_NUMBER_BUFFER_SIZE               1024
+#define PRODUCT_STRING_BUFFER_SIZE              1024
 
 #define MAXIMUM_NUMBER_OF_DEVICES               256
 
@@ -43,6 +44,8 @@
 #define HID_PERSIST_MESSAGE                     0x06
 #define HID_FIRMARE_MESSAGE                     0x07
 #define HID_BOOTLOADER_MESSAGE                  0x08
+#define HID_GET_MICROPHONE_MESSAGE              0x09
+#define HID_SET_MICROPHONE_MESSAGE              0x0A
 
 /* Return state */
 
@@ -59,9 +62,13 @@
 
 typedef enum {NO_FILTER, LOW_PASS_FILTER, BAND_PASS_FILTER, HIGH_PASS_FILTER} filterType_t;
 
+/* External microphone enum */
+
+typedef enum {AM_EXTERNAL_NOT_PRESENT, AM_EXTERNAL_PRESENT_AND_USED, AM_EXTERNAL_PRESENT_AND_IGNORED} externalMicrophone_t;
+
 /* Operation enum */
 
-typedef enum {NO_OP, LIST_OP, CONFIG_OP, UPDATE_GAIN_OP, SET_LED_OP, RESTORE_OP, READ_OP, PERSIST_OP, FIRMWARE_OP, BOOTLOADER_OP} operationType_t;
+typedef enum {NO_OP, LIST_OP, CONFIG_OP, UPDATE_GAIN_OP, SET_LED_OP, RESTORE_OP, READ_OP, PERSIST_OP, FIRMWARE_OP, BOOTLOADER_OP, GET_MICROPHONE_OP, SET_MICROPHONE_OP} operationType_t;
 
 /* Configuration value arrays */
 
@@ -109,6 +116,10 @@ static configSettings_t defaultConfigSettings = {
     .disableLED = 0
 };
 
+/* Microphone flag */
+
+static bool ignoreExternalMicrophone;
+
 /* USB buffers */
 
 static uint8_t usbInputBuffer[USB_PACKETSIZE];
@@ -119,9 +130,17 @@ static uint8_t usbOutputBuffer[USB_PACKETSIZE];
 
 static char parsedSerialNumbers[MAXIMUM_NUMBER_OF_DEVICES][USB_SERIAL_NUMBER_LENGTH + 1];
 
+/* Serial number buffer */
+
 static char currentSerialNumber[SERIAL_NUMBER_BUFFER_SIZE];
 
 static wchar_t currentWideSerialNumber[SERIAL_NUMBER_BUFFER_SIZE];
+
+/* Product string buffer */
+
+static char currentProductString[PRODUCT_STRING_BUFFER_SIZE];
+
+static wchar_t currentWideProductString[PRODUCT_STRING_BUFFER_SIZE];
 
 /* Function to print buffer */
 
@@ -137,7 +156,7 @@ static void printBuffer(uint8_t *buffer) {
     
 }
 
-/* Function to print configuration */
+/* Function to print configuration, firmware and microphone state */
 
 static void printConfiguration(configSettings_t *configSettings) {
 
@@ -166,6 +185,32 @@ static void printConfiguration(configSettings_t *configSettings) {
     if (configSettings->disable48HzDCBlockingFilter) printf(" d48");
 
     printf("\n");
+
+}
+
+static void printFirmware(uint8_t *buffer) {
+
+    printf("%s (%d.%d.%d)\n", (char*)buffer + 4, buffer[1], buffer[2], buffer[3]);
+
+}
+
+static void printMicrophoneState(uint8_t *buffer) {
+
+    externalMicrophone_t externalMicrophone = buffer[1];
+
+    if (externalMicrophone == AM_EXTERNAL_PRESENT_AND_IGNORED) {
+
+        printf("(int) ext\n");
+
+    } else if (externalMicrophone == AM_EXTERNAL_PRESENT_AND_USED) {
+
+        printf("int (ext)\n");
+
+    } else {
+
+        printf("(int)\n");
+
+    }
 
 }
 
@@ -287,9 +332,13 @@ static bool parseNumberAgainstList(char *text, int *validNumbers, int length, in
 
 /* Function to send command to USB device */
 
-static bool communicate(operationType_t operationType, char *path) {
+static bool communicateWithDevice(operationType_t operationType, struct hid_device_info *deviceInfo) {
 
     /* Open device */
+
+    char *path = deviceInfo->path;
+
+    if (path == NULL) return false;
 
     hid_device *device = hid_open_path(path);
 
@@ -339,6 +388,16 @@ static bool communicate(operationType_t operationType, char *path) {
 
         usbOutputBuffer[1] = HID_BOOTLOADER_MESSAGE;
 
+    } else if (operationType == GET_MICROPHONE_OP) {
+
+        usbOutputBuffer[1] = HID_GET_MICROPHONE_MESSAGE;
+
+    } else if (operationType == SET_MICROPHONE_OP) {
+
+        usbOutputBuffer[1] = HID_SET_MICROPHONE_MESSAGE;
+
+        usbOutputBuffer[2] = ignoreExternalMicrophone;
+
     }
 
     /* Write buffer to device */
@@ -359,27 +418,103 @@ static bool communicate(operationType_t operationType, char *path) {
 
     if (length != USB_PACKETSIZE) return false;
 
-    bool hasNoConfiguration = operationType == RESTORE_OP || operationType == READ_OP || operationType == PERSIST_OP || operationType == FIRMWARE_OP || operationType == BOOTLOADER_OP;
+    bool hasConfiguration = operationType == CONFIG_OP || operationType == UPDATE_GAIN_OP || operationType == SET_LED_OP;
 
-    int lengthToCheck = hasNoConfiguration ? 1 : 1 + sizeof(configSettings_t);
+    int lengthToCheck = hasConfiguration ? 1 + sizeof(configSettings_t) : 1;
 
     for (int i = 0; i < lengthToCheck; i += 1) {
 
         if (usbOutputBuffer[i + 1] != usbInputBuffer[i]) return false;
 
     }
-                
+
     return true;
 
 }
-               
+
+/* Function to read serial number and product string from AudioMoth USB Microphone */
+
+static bool checkDeviceIsAudioMoth(struct hid_device_info *deviceInfo) {
+
+    /* Read serial number and product string */
+
+    bool serialNumberPresent = convertToNarrow(deviceInfo->serial_number, currentSerialNumber, SERIAL_NUMBER_BUFFER_SIZE);
+
+    bool productStringPresent = convertToNarrow(deviceInfo->product_string, currentProductString, PRODUCT_STRING_BUFFER_SIZE);
+
+    if (serialNumberPresent == false || productStringPresent == false) {
+
+        /* Open device */
+
+        char *path = deviceInfo->path;
+
+        if (path == NULL) return false;
+
+        hid_device *device = hid_open_path(path);
+
+        if (device == NULL) return false;
+
+        /* Read serial number and product string */
+
+        if (serialNumberPresent == false) {
+
+            int error = hid_get_serial_number_string(device, currentWideSerialNumber, SERIAL_NUMBER_BUFFER_SIZE);
+
+            if (error == false) {
+
+                serialNumberPresent = convertToNarrow(currentWideSerialNumber, currentSerialNumber, SERIAL_NUMBER_BUFFER_SIZE);
+
+            }
+
+        }
+
+        if (productStringPresent == false) {
+
+            int error = hid_get_product_string(device, currentWideProductString, PRODUCT_STRING_BUFFER_SIZE);
+
+            if (error == false) {
+
+                productStringPresent = convertToNarrow(currentWideProductString, currentProductString, PRODUCT_STRING_BUFFER_SIZE);
+
+            }
+
+        }
+
+        /* Close device */
+
+        hid_close(device);
+
+    }
+
+    /* Check serial number format */
+
+    if (serialNumberPresent == false) return false;
+
+    char *currentSerialNumberPtr = strstr(currentSerialNumber, "_") + 1;
+
+    if (currentSerialNumberPtr != currentSerialNumber + USB_SERIAL_NUMBER_OFFSET || strlen(currentSerialNumberPtr) != USB_SERIAL_NUMBER_LENGTH) return false;
+
+    /* Check product string */
+
+    if (productStringPresent == false) return false;
+
+    char *currentProductStringPtr = strstr(currentProductString, "AudioMoth USB Microphone");
+
+    if (currentProductStringPtr == NULL) return false;
+
+    /* Return successfully */
+
+    return true;
+
+}
+
 /* Main function */
 
 int main(int argc, char **argv) {
 
     /* Display version number */
 
-    puts("AudioMoth-USB-Microphone 1.0.1");
+    puts("AudioMoth-USB-Microphone 1.0.2");
 
     /* Parse variables */
 
@@ -466,6 +601,36 @@ int main(int argc, char **argv) {
     } else if (parseArgument("BOOTLOADER", argument)) {
 
         operationType = BOOTLOADER_OP;
+
+    } else if (parseArgument("MICROPHONE", argument)) {
+
+        argumentCounter += 1;
+
+        if (argumentCounter == argc) {
+
+            operationType = GET_MICROPHONE_OP;
+
+        } else {
+
+            operationType = SET_MICROPHONE_OP;
+
+            argument = argv[argumentCounter];
+
+            if (parseArgument("INTERNAL", argument) || parseArgument("INT", argument) || parseArgument("I", argument)) {
+
+                ignoreExternalMicrophone = true;
+
+            } else if (parseArgument("EXTERNAL", argument) || parseArgument("EXT", argument) || parseArgument("E", argument)) {
+
+                ignoreExternalMicrophone = false;
+
+            } else {
+
+                parseError = true;
+
+            }
+
+        }
 
     } else {
 
@@ -728,125 +893,143 @@ int main(int argc, char **argv) {
     
     /* Perform the requested action */
 
-    char *operationStrings[] = {"CONFIG", "UPDATE", "LED", "RESTORE", "READ", "PERSIST", "FIRMWARE", "BOOTLOADER"};
+    char *operationStrings[] = {"CONFIG", "UPDATE", "LED", "RESTORE", "READ", "PERSIST", "FIRMWARE", "BOOTLOADER", "MICROPHONE", "MICROPHONE"};
 
     if (operationType == LIST_OP) {
 
         /* List enumerated AudioMoth USB Microphone */
 
+        bool foundAnyDevice = false;
+
         while (deviceInfo != NULL) {
-        
-            char *path = deviceInfo->path;
-            
-            if (path != NULL) {
-        
-                bool success = convertToNarrow(deviceInfo->serial_number, currentSerialNumber, SERIAL_NUMBER_BUFFER_SIZE);
-            
-                if (success == false) {
-            
-                    hid_device *device = hid_open_path(path);
 
-                    if (device != NULL) {
-               
-                        int error = hid_get_serial_number_string(device, currentWideSerialNumber, SERIAL_NUMBER_BUFFER_SIZE);
-                   
-                        if (error == false) {
-                       
-                            success = convertToNarrow(currentWideSerialNumber, currentSerialNumber, SERIAL_NUMBER_BUFFER_SIZE);
-                       
-                        }
-               
+            bool success = checkDeviceIsAudioMoth(deviceInfo);
+
+            if (success) {
+
+                int j = 0;
+
+                bool digit = false;
+
+                char *currentSerialNumberPtr = strstr(currentSerialNumber, "_") + 1;
+
+                char frequencyString[] = {0, 0, 0, 0};
+
+                for (int i = 0; i < USB_SERIAL_NUMBER_OFFSET - 1; i += 1) {
+
+                    if (digit || currentSerialNumber[i] > '0') {
+
+                        frequencyString[j++] = currentSerialNumber[i];
+
+                        digit = true;
+
                     }
-               
-                }
-        
-                if (success) {
-            
-                    char *currentSerialNumberPtr = strstr(currentSerialNumber, "_") + 1;
-        
-                    if (currentSerialNumberPtr == currentSerialNumber + USB_SERIAL_NUMBER_OFFSET && strlen(currentSerialNumberPtr) == USB_SERIAL_NUMBER_LENGTH) {
-
-                        int j = 0;
-            
-                        bool digit = false;
-                        
-                        char frequencyString[] = {0, 0, 0, 0};
-            
-                        for (int i = 0; i < USB_SERIAL_NUMBER_OFFSET - 1; i += 1) {
-                    
-                            if (digit || currentSerialNumber[i] > '0') {
-                        
-                                frequencyString[j++] = currentSerialNumber[i];
-
-                                digit = true;
-
-                            }
-
-                        }
-
-                        printf("%s - %skHz AudioMoth USB Microphone\n", currentSerialNumberPtr, frequencyString);
-                            
-                    }
-                        
-                } else {
-
-                    puts("[ERROR] Problem accessing USB device.");
-                    
-                    break;
 
                 }
-                
+
+                printf("%s - %skHz AudioMoth USB Microphone\n", currentSerialNumberPtr, frequencyString);
+
+                foundAnyDevice = true;
+
             }
-            
+
             deviceInfo = deviceInfo->next;
 
         }
 
-    } else if (deviceInfo == NULL) {
-        
-        puts("[WARNING] No AudioMoth USB Microphones found.");
+        if (foundAnyDevice == false) {
+
+            puts("[WARNING] No AudioMoth USB Microphones found.");
+
+        }
 
     } else if (numberOfSerialNumbers == 0) {
 
-        /* Send CONFIG, UPDATE, LED, RESTORE, READ, PERSIST, FIRMWARE or BOOTLOADER to all connected AudioMoth USB Microphone */
+        /* Send CONFIG, UPDATE, LED, RESTORE, READ, PERSIST, FIRMWARE, BOOTLOADER or MICROPHONE to all connected AudioMoth USB Microphone */
 
-        bool cancel = false;
+        bool foundAnyDevice = false;
 
-        while (deviceInfo != NULL && cancel == false) {
+        while (deviceInfo != NULL) {
 
-            char *path = deviceInfo->path;
-            
-            if (path != NULL) {
-        
-                bool success = convertToNarrow(deviceInfo->serial_number, currentSerialNumber, SERIAL_NUMBER_BUFFER_SIZE);
-            
-                if (success == false) {
-            
-                    hid_device *device = hid_open_path(path);
+            bool success = checkDeviceIsAudioMoth(deviceInfo);
 
-                    if (device != NULL) {
-                   
-                        int error = hid_get_serial_number_string(device, currentWideSerialNumber, SERIAL_NUMBER_BUFFER_SIZE);
-                           
-                        if (error == false) {
-                           
-                            success = convertToNarrow(currentWideSerialNumber, currentSerialNumber, SERIAL_NUMBER_BUFFER_SIZE);
-                           
-                        }
-                   
+            if (success) {
+
+                char *currentSerialNumberPtr = strstr(currentSerialNumber, "_") + 1;
+
+                bool completed = communicateWithDevice(operationType, deviceInfo);
+
+                if (completed) {
+
+                    if (operationType == READ_OP) {
+
+                        printf("%s - ", currentSerialNumberPtr);
+
+                        printConfiguration((configSettings_t*)(usbInputBuffer + 1));
+
+                    } else if (operationType == FIRMWARE_OP) {
+
+                        printf("%s - ", currentSerialNumberPtr);
+
+                        printFirmware(usbInputBuffer);
+
+                    } else if (operationType == GET_MICROPHONE_OP) {
+
+                        printf("%s - ", currentSerialNumberPtr);
+
+                        printMicrophoneState(usbInputBuffer);
+
+                    } else {
+
+                        char *operationString = operationStrings[operationType - 2];
+
+                        printf("Sent %s command to device ID %s.\n", operationString, currentSerialNumberPtr);
+
                     }
-                   
-                    hid_close(device);
-               
+
+                } else {
+
+                    printf("[ERROR] Problem communicating with device ID %s.\n", currentSerialNumberPtr);
+
                 }
-            
+                
+                foundAnyDevice = true;
+
+            }
+
+            deviceInfo = deviceInfo->next;
+
+        }
+
+        if (foundAnyDevice == false) {
+
+            puts("[WARNING] No AudioMoth USB Microphones found.");
+
+        }
+
+    } else {
+
+        /* Send CONFIG, UPDATE, LED, RESTORE, READ, PERSIST, FIRMWARE, BOOTLOADER or MICROPHONE to AudioMoth USB Microphone specified by serial number */
+
+        struct hid_device_info *firstDeviceInfo = deviceInfo;
+
+        for (int i = 0; i < numberOfSerialNumbers; i += 1) {
+
+            bool foundSpecificDevice = false;
+
+            deviceInfo = firstDeviceInfo;
+
+            while (deviceInfo != NULL) {
+
+                bool success = checkDeviceIsAudioMoth(deviceInfo);
+
                 if (success) {
-                    
+
                     char *currentSerialNumberPtr = strstr(currentSerialNumber, "_") + 1;
 
-                    if (currentSerialNumberPtr == currentSerialNumber + USB_SERIAL_NUMBER_OFFSET && strlen(currentSerialNumberPtr) == USB_SERIAL_NUMBER_LENGTH) {
+                    if (strncmp(currentSerialNumberPtr, parsedSerialNumbers[i], USB_SERIAL_NUMBER_LENGTH) == 0) {
 
-                        bool completed = communicate(operationType, path);
+                        bool completed = communicateWithDevice(operationType, deviceInfo);
 
                         if (completed) {
 
@@ -857,10 +1040,16 @@ int main(int argc, char **argv) {
                                 printConfiguration((configSettings_t*)(usbInputBuffer + 1));
 
                             } else if (operationType == FIRMWARE_OP) {
-                                
+
                                 printf("%s - ", currentSerialNumberPtr);
-                                
-                                printf("%s (%d.%d.%d)\n", usbInputBuffer + 4, *((uint8_t*)usbInputBuffer + 1), *((uint8_t*)usbInputBuffer + 2), *((uint8_t*)usbInputBuffer + 3));
+
+                                printFirmware(usbInputBuffer);
+
+                            } else if (operationType == GET_MICROPHONE_OP) {
+
+                                printf("%s - ", currentSerialNumberPtr);
+
+                                printMicrophoneState(usbInputBuffer);
 
                             } else {
 
@@ -871,117 +1060,12 @@ int main(int argc, char **argv) {
                             }
 
                         } else {
-                            
+
                             printf("[ERROR] Problem communicating with device ID %s.\n", currentSerialNumberPtr);
 
                         }
 
-                    }
-                    
-                } else {
-
-                    puts("[ERROR] Problem accessing USB device.");
-
-                    cancel = true;
-
-                }
-                
-            }
-
-            deviceInfo = deviceInfo->next;
-
-        }
-
-    } else {
-
-        /* Send CONFIG, UPDATE, LED, RESTORE, READ, PERSIST, FIRMWARE or BOOTLOADER to AudioMoth USB Microphone specified by serial number */
-
-        bool cancel = false;
-
-        struct hid_device_info *firstDeviceInfo = deviceInfo;
-
-        for (int i = 0; i < numberOfSerialNumbers; i += 1) {
-
-            bool found = false;
-
-            deviceInfo = firstDeviceInfo;
-
-            while (deviceInfo != NULL && cancel == false) {
-            
-                char *path = deviceInfo->path;
-            
-                if (path != NULL) {
-        
-                    bool success = convertToNarrow(deviceInfo->serial_number, currentSerialNumber, SERIAL_NUMBER_BUFFER_SIZE);
-            
-                    if (success == false) {
-            
-                        hid_device *device = hid_open_path(path);
-
-                        if (device != NULL) {
-                   
-                            int error = hid_get_serial_number_string(device, currentWideSerialNumber, SERIAL_NUMBER_BUFFER_SIZE);
-                       
-                            if (error == false) {
-                       
-                                success = convertToNarrow(currentWideSerialNumber, currentSerialNumber, SERIAL_NUMBER_BUFFER_SIZE);
-                       
-                            }
-           
-                        }
-               
-                        hid_close(device);
-               
-                    }
-
-                    if (success) {
-
-                        convertToNarrow(deviceInfo->serial_number, currentSerialNumber, SERIAL_NUMBER_BUFFER_SIZE);
-
-                        char *currentSerialNumberPtr = strstr(currentSerialNumber, "_") + 1;
-
-                        if (currentSerialNumberPtr == currentSerialNumber + USB_SERIAL_NUMBER_OFFSET && strlen(currentSerialNumberPtr) == USB_SERIAL_NUMBER_LENGTH && strncmp(currentSerialNumberPtr, parsedSerialNumbers[i], USB_SERIAL_NUMBER_LENGTH) == 0) {
-
-                            bool completed = communicate(operationType, path);
-
-                            if (completed) {
-
-                                if (operationType == READ_OP) {
-
-                                    printf("%s - ", currentSerialNumberPtr);
-
-                                    printConfiguration((configSettings_t*)(usbInputBuffer + 1));
-
-                                } else if (operationType == FIRMWARE_OP) {
-                                
-                                    printf("%s - ", currentSerialNumberPtr);
-                                
-                                    printf("%s (%d.%d.%d)\n", usbInputBuffer + 4, *((uint8_t*)usbInputBuffer + 1), *((uint8_t*)usbInputBuffer + 2), *((uint8_t*)usbInputBuffer + 3));
-
-                                } else {
-
-                                    char *operationString = operationStrings[operationType - 2];
-                                
-                                    printf("Sent %s command to device ID %s.\n", operationString, currentSerialNumberPtr);
-
-                                }
-
-                            } else {
-                                
-                                printf("[ERROR] Problem communicating with device ID %s.\n", currentSerialNumberPtr);
-
-                            }
-
-                            found = true;
-
-                        }
-
-                    } else {
-
-                        puts("[ERROR] Problem accessing USB device.");
-
-                        cancel = true;
-                    
+                        foundSpecificDevice = true;
 
                     }
 
@@ -991,9 +1075,7 @@ int main(int argc, char **argv) {
 
             }
 
-            if (cancel) break;
-
-            if (found == false) printf("[ERROR] Could not find device ID %s.\n", parsedSerialNumbers[i]);
+            if (foundSpecificDevice == false) printf("[ERROR] Could not find device ID %s.\n", parsedSerialNumbers[i]);
 
         }
 
