@@ -44,13 +44,13 @@ On certain Linux distributions, you may also have to manually set the permission
 AudioMoth-USB-Microphone can be built on macOS using the Xcode Command Line Tools.
 
 ```
-> clang -I../src/macOS/ -framework CoreFoundation -framework IOKit ../src/main.c ../src/macOS/hid.c -o AudioMoth-USB-Microphone   
+> clang -I./src/macOS/ -framework CoreFoundation -framework IOKit ./src/main.c ./src/macOS/hid.c -o AudioMoth-USB-Microphone   
 ```
 
 AudioMoth-USB-Microphone can be built on Windows using the Microsoft Visual C++ Build Tools. Note that to build the correct version you should run the command in the correct environment. Use the 'x64 Native Tools Command Prompt' to build the 64-bit binary on a 64-bit machine, and the 'x64_x86 Cross Tools Command Prompt' to build the 32-bit binary on a 64-bit machine.
 
 ```
-cl /I ..\src\windows\ ..\src\main.c ..\src\windows\hid.c /link /out:AudioMoth-USB-Microphone.exe SetupAPI.lib
+cl /I .\src\windows\ .\src\main.c .\src\windows\hid.c /link /out:AudioMoth-USB-Microphone.exe SetupAPI.lib
 ```
 
 AudioMoth-USB-Microphone can be built on Linux using `gcc`. If not already present, the `libusb` development library must be installed.
@@ -62,7 +62,7 @@ AudioMoth-USB-Microphone can be built on Linux using `gcc`. If not already prese
 Then the source can be compiled.
 
 ```
-gcc -Wall -std=c99 -I/usr/include/libusb-1.0 -I../src/linux/ ../src/main.c ../src/linux/hid.c -o AudioMoth-USB-Microphone -lusb-1.0 -lrt -lpthread
+gcc -Wall -std=c99 -I/usr/include/libusb-1.0 -I./src/linux/ ./src/main.c ./src/linux/hid.c -o AudioMoth-USB-Microphone -lusb-1.0 -lrt -lpthread
 ```
 
 On macOS and Linux you can copy the resulting executable to `/usr/local/bin/` so it is immediately accessible from the terminal. On Windows copy the executable to a permanent location and add this location to the `PATH` variable.
